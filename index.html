@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Approval Checker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --success: #10b981;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            min-height: 100vh;
+        }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(203, 213, 225, 0.5);
+        }
+        
+        .risk-critical {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(239, 68, 68, 0.02) 100%);
+            border-left: 4px solid var(--danger);
+        }
+        
+        .risk-high {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(245, 158, 11, 0.02) 100%);
+            border-left: 4px solid var(--warning);
+        }
+        
+        .risk-low {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0.02) 100%);
+            border-left: 4px solid var(--success);
+        }
+        
+        .risk-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .risk-critical .risk-badge {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .risk-high .risk-badge {
+            background: var(--warning);
+            color: white;
+        }
+        
+        .risk-low .risk-badge {
+            background: var(--success);
+            color: white;
+        }
+        
+        .badge-unlimited {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .input-field {
+            border: 2px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+        }
+        
+        .input-field:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .btn {
+            border-radius: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            font-size: 0.95rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: #2563eb;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+            transform: translateY(-1px);
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .btn-danger:hover:not(:disabled) {
+            background: #dc2626;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .token-row {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            transition: all 0.2s;
+        }
+        
+        .token-row:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="min-h-screen py-8 px-4 sm:px-6">
+        <div class="max-w-4xl mx-auto">
+            <div class="mb-8 text-center">
+                <h1 class="text-4xl font-bold text-gray-900 mb-3">Token Approval Checker</h1>
+                <p class="text-gray-600 text-lg">Analyze wallet approvals and identify risky spending permissions</p>
+            </div>
+
+            <div class="glass rounded-xl p-6 sm:p-8 mb-8 shadow-lg">
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Wallet Address</label>
+                    <input 
+                        type="text" 
+                        id="walletInput" 
+                        class="input-field w-full"
+                        placeholder="0x742d35Cc6634C0532925a3b844Bc9e7595f42e3d"
+                    >
+                    <p class="text-xs text-gray-500 mt-2">Paste your Ethereum address to scan approvals</p>
+                </div>
+                <button id="scanBtn" class="btn btn-primary w-full">Scan Approvals</button>
+            </div>
+
+            <div id="resultsContainer" class="hidden">
+                <div class="grid grid-cols-3 gap-4 mb-8">
+                    <div class="glass rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-gray-900" id="totalCount">0</div>
+                        <div class="text-xs text-gray-600 font-medium mt-1">Total Approvals</div>
+                    </div>
+                    <div class="glass rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-yellow-600" id="riskCount">0</div>
+                        <div class="text-xs text-gray-600 font-medium mt-1">Risky Approvals</div>
+                    </div>
+                    <div class="glass rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-red-600" id="unlimitedCount">0</div>
+                        <div class="text-xs text-gray-600 font-medium mt-1">Unlimited Spend</div>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">Active Approvals</h2>
+                    <div id="approvalsGrid" class="space-y-4"></div>
+                </div>
+
+                <div id="emptyState" class="glass rounded-xl p-12 text-center">
+                    <div class="text-gray-500 text-lg">No approvals found for this wallet</div>
+                    <p class="text-gray-400 text-sm mt-2">This is a demo. Try a different address or add sample approvals.</p>
+                </div>
+            </div>
+
+            <div id="loadingState" class="hidden">
+                <div class="glass rounded-xl p-12">
+                    <div class="flex items-center justify-center mb-4">
+                        <div class="w-8 h-8 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
+                    </div>
+                    <div class="text-center text-gray-600">Scanning wallet approvals...</div>
+                </div>
+            </div>
+
+            <div id="errorState" class="hidden glass rounded-xl p-6 bg-red-50 border border-red-200">
+                <div class="text-red-700 font-semibold mb-2">Error</div>
+                <div id="errorMessage" class="text-red-600"></div>
+            </div>
+
+            <div class="glass rounded-xl p-6 mt-8">
+                <div class="mb-4">
+                    <h3 class="text-sm font-bold text-gray-900 mb-3">Demo Approvals</h3>
+                    <p class="text-xs text-gray-600 mb-4">Click below to load sample approval data for demonstration</p>
+                </div>
+                <button id="demoBtn" class="btn btn-primary w-full">Load Sample Data</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const mockApprovals = [
+            {
+                tokenAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+                tokenName: 'USD Coin',
+                tokenSymbol: 'USDC',
+                spenderAddress: '0x68b3465833fb72b37099c4039d62a69ac8e98c48b',
+                spenderName: 'Uniswap V3 Router',
+                amount: '115792089237316195423570985008687907853269984665640564039457584007913129639935',
+                isUnlimited: true,
+                riskLevel: 'critical',
+                riskReasons: ['Unlimited spending permission', 'Large liquidity pool target']
+            },
+            {
+                tokenAddress: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+                tokenName: 'Wrapped Ether',
+                tokenSymbol: 'WETH',
+                spenderAddress: '0x1111111254fb6c44bac0bed2854e76f90643097d',
+                spenderName: '1inch Router',
+                amount: '50000000000000000000',
+                isUnlimited: false,
+                riskLevel: 'low',
+                riskReasons: []
+            },
+            {
+                tokenAddress: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+                tokenName: 'Tether USD',
+                tokenSymbol: 'USDT',
+                spenderAddress: '0xe592427a0aece92de3edee1f18e0157c05861564',
+                spenderName: 'Swap Router 02',
+                amount: '115792089237316195423570985008687907853269984665640564039457584007913129639935',
+                isUnlimited: true,
+                riskLevel: 'critical',
+                riskReasons: ['Unlimited spending permission', 'Less established protocol']
+            },
+            {
+                tokenAddress: '0x6b175474e89094c44da98b954eedeac495271d0f',
+                tokenName: 'Dai Stablecoin',
+                tokenSymbol: 'DAI',
+                spenderAddress: '0xa5409ec958c83c3f309868babaca7c86dcb077c0',
+                spenderName: 'OpenSea',
+                amount: '1000000000000000000000',
+                isUnlimited: false,
+                riskLevel: 'high',
+                riskReasons: ['High value approval to NFT marketplace', 'Consider reducing amount']
+            },
+            {
+                tokenAddress: '0x7fc66500c84a76ad7e9c93437e434122a1aa8a8b',
+                tokenName: 'Aave Token',
+                tokenSymbol: 'AAVE',
+                spenderAddress: '0xba12222222228d8ba445958a75a0704d566bf2c8',
+                spenderName: 'Balancer Vault',
+                amount: '999000000000000000000',
+                isUnlimited: false,
+                riskLevel: 'low',
+                riskReasons: []
+            }
+        ];
+
+        const elements = {
+            walletInput: document.getElementById('walletInput'),
+            scanBtn: document.getElementById('scanBtn'),
+            demoBtn: document.getElementById('demoBtn'),
+            resultsContainer: document.getElementById('resultsContainer'),
+            loadingState: document.getElementById('loadingState'),
+            errorState: document.getElementById('errorState'),
+            errorMessage: document.getElementById('errorMessage'),
+            emptyState: document.getElementById('emptyState'),
+            approvalsGrid: document.getElementById('approvalsGrid'),
+            totalCount: document.getElementById('totalCount'),
+            riskCount: document.getElementById('riskCount'),
+            unlimitedCount: document.getElementById('unlimitedCount')
+        };
+
+        function formatAddress(address) {
+            return `${address.slice(0, 6)}...${address.slice(-4)}`;
+        }
+
+        function formatAmount(amount, isUnlimited) {
+            if (isUnlimited) return 'Unlimited';
+            const num = BigInt(amount);
+            const decimals = BigInt(10 ** 18);
+            const value = num / decimals;
+            return `${value.toString()} tokens`;
+        }
+
+        function getRiskLevel(approval) {
+            if (approval.isUnlimited) return 'critical';
+            const amount = BigInt(approval.amount);
+            const decimals = BigInt(10 ** 18);
+            const normalizedAmount = amount / decimals;
+            if (normalizedAmount > BigInt(100)) return 'high';
+            return 'low';
+        }
+
+        function renderApprovals(approvals) {
+            const criticalCount = approvals.filter(a => a.riskLevel === 'critical').length;
+            const highCount = approvals.filter(a => a.riskLevel === 'high').length;
+            const unlimitedCount = approvals.filter(a => a.isUnlimited).length;
+
+            elements.totalCount.textContent = approvals.length;
+            elements.riskCount.textContent = criticalCount + highCount;
+            elements.unlimitedCount.textContent = unlimitedCount;
+
+            elements.approvalsGrid.innerHTML = approvals.map(approval => `
+                <div class="token-row risk-${approval.riskLevel} fade-in">
+                    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-3 mb-2">
+                                <div>
+                                    <h3 class="font-bold text-gray-900">${approval.tokenName}</h3>
+                                    <p class="text-xs text-gray-600">${approval.tokenSymbol} • ${formatAddress(approval.tokenAddress)}</p>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <span class="risk-badge">${approval.riskLevel}</span>
+                                ${approval.isUnlimited ? '<span class="badge-unlimited ml-2">⚠️ Unlimited</span>' : ''}
+                            </div>
+                            <div class="text-sm mb-3">
+                                <p class="text-gray-700 font-medium">Approved to: ${approval.spenderName}</p>
+                                <p class="text-xs text-gray-600">${formatAddress(approval.spenderAddress)}</p>
+                            </div>
+                            <div class="text-sm">
+                                <span class="text-gray-600">Amount: </span>
+                                <span class="font-mono font-semibold text-gray-900">${formatAmount(approval.amount, approval.isUnlimited)}</span>
+                            </div>
+                            ${approval.riskReasons.length > 0 ? `
+                                <div class="mt-3 bg-white bg-opacity-50 rounded p-2">
+                                    <p class="text-xs font-semibold text-gray-700 mb-1">Risk Factors:</p>
+                                    <ul class="text-xs text-gray-600 space-y-1">
+                                        ${approval.riskReasons.map(reason => `<li>• ${reason}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="flex gap-2">
+                            ${approval.riskLevel === 'critical' || approval.riskLevel === 'high' ? 
+                                `<button onclick="revokeApproval('${approval.tokenAddress}', '${approval.spenderAddress}')" class="btn btn-danger text-sm whitespace-nowrap">Revoke</button>` 
+                                : 
+                                `<button onclick="revokeApproval('${approval.tokenAddress}', '${approval.spenderAddress}')" class="btn btn-primary text-sm whitespace-nowrap" style="background: var(--success);">Revoke</button>`
+                            }
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            elements.emptyState.classList.add('hidden');
+            elements.resultsContainer.classList.remove('hidden');
+        }
+
+        function revokeApproval(tokenAddress, spenderAddress) {
+            alert(`Revoke approval:\nToken: ${formatAddress(tokenAddress)}\nSpender: ${formatAddress(spenderAddress)}\n\nNote: In a real app, this would execute a transaction on-chain.`);
+        }
+
+        function showLoading() {
+            elements.resultsContainer.classList.add('hidden');
+            elements.errorState.classList.add('hidden');
+            elements.loadingState.classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            elements.loadingState.classList.add('hidden');
+        }
+
+        function showError(message) {
+            elements.errorMessage.textContent = message;
+            elements.errorState.classList.remove('hidden');
+            elements.resultsContainer.classList.add('hidden');
+            elements.loadingState.classList.add('hidden');
+        }
+
+        function isValidAddress(address) {
+            return /^0x[a-fA-F0-9]{40}$/.test(address);
+        }
+
+        elements.scanBtn.addEventListener('click', async () => {
+            const address = elements.walletInput.value.trim();
+            
+            if (!address) {
+                showError('Please enter a wallet address');
+                return;
+            }
+
+            if (!isValidAddress(address)) {
+                showError('Invalid Ethereum address format');
+                return;
+            }
+
+            showLoading();
+            
+            setTimeout(() => {
+                hideLoading();
+                renderApprovals(mockApprovals);
+            }, 1500);
+        });
+
+        elements.demoBtn.addEventListener('click', () => {
+            elements.walletInput.value = '0x742d35Cc6634C0532925a3b844Bc9e7595f42e3d';
+            showLoading();
+            setTimeout(() => {
+                hideLoading();
+                renderApprovals(mockApprovals);
+            }, 1500);
+        });
+
+        elements.walletInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                elements.scanBtn.click();
+            }
+        });
+    </script>
+</body>
+</html>
